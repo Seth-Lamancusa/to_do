@@ -1,11 +1,11 @@
 import sys
 import json
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 
 # TODO
-# Fix duplicates
 # Add priorities key to data
+# Edit and delete item options
 
 
 DATAFILE = 'data.json'
@@ -66,7 +66,7 @@ def is_valid_item(item):
     if not isinstance(item, dict):
         return False
 
-    keys = {"description", "type"}
+    keys = {"description", "type", "active"}
     try:
         if item.get("type") == "goal":
             keys.update({"start_date", "deadline", "gschedule"})
@@ -80,11 +80,11 @@ def is_valid_item(item):
     if keys != set(item.keys()):
         return False
 
-    if not (is_valid_description(item["description"]) and is_valid_type(item["type"])):
+    if not (is_valid_description(item["description"]) and is_valid_type(item["type"]) and is_valid_active(item["active"])):
         return False
 
     if item["type"] == "goal":
-        return (is_valid_dates(item["start_date"], item["deadline"]) and
+        return (is_valid_date(item["start_date"], item["deadline"]) and
                 is_valid_gschedule(item["gschedule"], item["start_date"], item["deadline"]))
     elif item["type"] == "routine":
         return (is_valid_frequency(item["frequency"]) and
@@ -183,7 +183,19 @@ def is_valid_gschedule(gschedule, start_date, deadline):
     return True
 
 
-def is_valid_dates(start_date, deadline):
+def is_valid_active(active):
+    """
+    Parameters:
+        active (bool): active to validate
+
+    Returns:
+        bool: True if active is valid, False otherwise
+    """
+
+    return isinstance(active, bool)
+
+
+def is_valid_date(start_date, deadline):
     """
     Parameters:
         start_date (str): start date to validate
@@ -277,8 +289,8 @@ def get_new_item():
         start_date = prompt_for_value(
             "Enter start date (YYYY-MM-DD): ", is_iso_date, "Invalid start date.")
         deadline = prompt_for_value("Enter deadline (YYYY-MM-DD): ", lambda d: is_iso_date(
-            d) and is_valid_dates(start_date, d), "Invalid deadline.")
-        gschedule = prompt_for_value("Enter gschedule as a list of lists (e.g. [['2020-01-01', 30], ['2020-01-03', 45]]): ", lambda s: is_valid_gschedule_string(
+            d) and is_valid_date(start_date, d), "Invalid deadline.")
+        gschedule = prompt_for_value("Enter gschedule as a list of lists (e.g. [[\"2020-01-01\", 30], [\"2020-01-03\", 45]]): ", lambda s: is_valid_gschedule_string(
             s, start_date, deadline), "Invalid gschedule.")
         item["start_date"] = start_date
         item["deadline"] = deadline
@@ -348,14 +360,16 @@ def display_items(items):
         ValueError: if items is not valid
     """
 
-    if not items:
-        print("No items in the list.")
-        return
-
     if not is_valid_items(items):
         raise ValueError("Items is not valid")
 
-    print("=== Items ===")
+    if not items:
+        print('''
+        No items in the list.
+        ''')
+        return
+
+    print("============ Items ============")
     for i, item in enumerate(items, start=1):
         print(f"{i}. {item['description']} ({item['type']})")
 
@@ -387,7 +401,11 @@ def display_items_for_date(data, date_str):
         raise ValueError("Date is not valid")
 
     items = get_items_for_date(data, date_str)
-    print(f"=== {date_str} ===")
+    year = int(date_str.split("-")[0])
+    month = int(date_str.split("-")[1])
+    day = int(date_str.split("-")[2])
+    weekday = date(year, month, day).weekday()
+    print(f"=== {weekday}, {date_str} ===")
     display_items(items)
 
 
@@ -515,7 +533,7 @@ def get_day_of_week(date_str):
     return date(year, month, day).weekday()
 
 
-def get_day_of_year(date_):
+def get_day_of_year(date_str):
     """
     Parameters:
         date (str): The date to get the day of the year for.
@@ -527,28 +545,286 @@ def get_day_of_year(date_):
         ValueError: if date is not valid
     """
 
-    if not is_iso_date(date_):
+    if not is_iso_date(date_str):
         raise ValueError("Date is not valid")
 
-    year = int(date_.split("-")[0])
-    month = int(date_.split("-")[1])
-    day = int(date_.split("-")[2])
+    year = int(date_str.split("-")[0])
+    month = int(date_str.split("-")[1])
+    day = int(date_str.split("-")[2])
 
     return datetime.date(year, month, day).timetuple().tm_yday
+
+
+def enter_day_view(data):
+    """
+    Parameters:
+        data (dict): The data to enter day view with.
+
+    Raises:
+        ValueError: if data is not valid
+    """
+
+    if not is_valid_data(data):
+        raise ValueError("Data is not valid")
+
+    date_ = date.today()
+    while True:
+        display_items_for_date(data, date_.isoformat())
+        choice = input(
+            "Enter b for previous day, n for next day, or r to return to menu: ")
+        if choice == "b":
+            date_ -= timedelta(days=1)
+        elif choice == "n":
+            date_ += timedelta(days=1)
+        elif choice == "r":
+            return
+        else:
+            print("Invalid input")
+
+
+def delete_item(data, item_desc):
+    """
+    Parameters:
+        data (dict): The data to delete an item from.
+        item_desc (int): The id of the item to delete.
+
+    Returns:
+        dict: The data after deleting the item.
+
+    Raises:
+        ValueError: if data is not valid
+        ValueError: if item_desc is not valid
+        ValueError: if item_desc is not in data
+    """
+
+    if not is_valid_data(data):
+        raise ValueError("Data is not valid")
+    if not is_valid_description(item_desc):
+        raise ValueError("item_desc is not valid")
+    if item_desc not in [item["description"] for item in data["items"]]:
+        raise ValueError("item_desc is not in data")
+
+    for item in data["items"]:
+        if item["description"] == item_desc:
+            data["items"].remove(item)
+            return data
+
+
+def item_in_data(data, item_desc):
+    """
+    Parameters:
+        data (dict): The data to check for the description in.
+        item_desc (int): The id of the item to check for.
+
+    Returns:
+        bool: True if the description exists, False otherwise.
+
+    Raises:
+        ValueError: if data is not valid
+        ValueError: if item_desc is not valid
+    """
+
+    if not is_valid_data(data):
+        raise ValueError("Data is not valid")
+    if not is_valid_description(item_desc):
+        raise ValueError("item_desc is not valid")
+
+    for item in data["items"]:
+        if item["description"] == item_desc:
+            return True
+
+    return False
+
+
+def toggle_item_active(data, item_desc):
+    """
+    Parameters:
+        data (dict): The data to toggle the active status of an item in.
+        item_desc (str): The id of the item to toggle the active status of.
+
+    Returns:
+        dict: The data after toggling the active status of the item.
+
+    Raises:
+        ValueError: if data is not valid
+        ValueError: if item_desc is not valid
+        ValueError: if item_desc is not in data
+    """
+
+    if not is_valid_data(data):
+        raise ValueError("Data is not valid")
+    if not is_valid_description(item_desc):
+        raise ValueError("item_desc is not valid")
+    if item_desc not in [item["description"] for item in data["items"]]:
+        raise ValueError("item_desc is not in data")
+
+    for item in data["items"]:
+        if item["description"] == item_desc:
+            item["active"] = not item["active"]
+            return data
+
+
+def edit_item_attribute(data, item_desc, attribute, new_value):
+    """
+    Parameters:
+        data (dict): The data to edit an item in.
+        item_desc (str): The id of the item to edit.
+        attribute (str): The attribute to edit.
+        new_value (str): The new value for the attribute.
+
+    Returns:
+        dict: The data after editing the item.
+
+    Raises:
+        ValueError: if data is not valid
+        ValueError: if item_desc is not valid
+        ValueError: if attribute is not valid
+        ValueError: if new_value is not valid
+        ValueError: if item_desc is not in data
+    """
+
+    if not is_valid_data(data):
+        raise ValueError("Data is not valid")
+    if not is_valid_description(item_desc):
+        raise ValueError("item_desc is not valid")
+    if not is_valid_attribute(attribute):
+        raise ValueError("attribute is not valid")
+    if not is_valid_attribute_value(attribute, new_value):
+        raise ValueError("new_value is not valid")
+    if item_desc not in [item["description"] for item in data["items"]]:
+        raise ValueError("item_desc is not in data")
+
+    for item in data["items"]:
+        if item["description"] == item_desc:
+            item[attribute] = new_value
+
+
+def is_valid_attribute(attribute):
+    """
+    Parameters:
+        attribute (str): The attribute to check.
+
+    Returns:
+        bool: True if the attribute is valid, False otherwise.
+    """
+
+    return attribute in ["description", "type", "active", "rschedule", "frequency", "gschedule", "start_date", "deadline"]
+
+
+def is_valid_attribute_value(attribute, value):
+    """
+    Parameters:
+        attribute (str): The attribute to check.
+        value (str): The value to check.
+
+    Returns:
+        bool: True if the value is valid, False otherwise.
+    """
+
+    if attribute == "description":
+        return is_valid_description(value)
+    elif attribute == "type":
+        return is_valid_type(value)
+    elif attribute == "active":
+        return is_valid_active(value)
+    elif attribute == "rschedule":
+        return is_valid_rschedule(value)
+    elif attribute == "frequency":
+        return is_valid_frequency(value)
+    elif attribute == "gschedule":
+        return is_valid_gschedule(value)
+    else:
+        return is_valid_date(value)
+
+
+def get_valid_date():
+    """
+    Returns:
+        str: A valid date in the format YYYY-MM-DD.
+    """
+
+    prompt_for_value("date", is_valid_date, "Invalid date")
+
+
+def get_existing_item(data):
+    """
+    Parameters:
+        data (dict): The data to get an item from.
+
+    Returns:
+        dict: A valid item dictionary.
+
+    Raises:
+        ValueError: If the data is invalid.
+    """
+
+    if not is_valid_data(data):
+        raise ValueError("Invalid data.")
+
+    return prompt_for_value(
+        "Enter item description: ", lambda i: is_valid_description(i) and item_in_data(data, i), "Item is invalid or does not exist.")
+
+
+def get_existing_attribute(item):
+    """
+    Parameters:
+        item (dict): The item test the attribute against
+
+    Returns:
+        str: The attribute
+
+    Raises:
+        ValueError: if item is not valid
+    """
+
+    if not is_valid_item(item):
+        raise ValueError("item is not valid")
+
+    return prompt_for_value(f"Enter existing attribute for f{item}", lambda i: is_valid_attribute(
+        i) and i in item, f"Invalid or non-existent attribute for f{item}")
+
+
+def get_valid_attribute_value(attribute):
+    """
+    Parameters:
+        attribute (str): The attribute to get a value for.
+
+    Returns:
+        str: A valid value for the attribute.
+
+    Raises:
+        ValueError: if attribute is not valid
+    """
+
+    if not is_valid_attribute(attribute):
+        raise ValueError("attribute is not valid")
+
+    if attribute == "description":
+        return prompt_for_value("Enter new description: ", is_valid_description, "Invalid description.")
+    elif attribute == "type":
+        return prompt_for_value("Enter new type: ", is_valid_type, "Invalid type.")
+    elif attribute == "active":
+        return prompt_for_value("Enter new active status: ", is_valid_active, "Invalid active status.")
+    elif attribute == "rschedule":
+        return prompt_for_value("Enter new rschedule: ", is_valid_rschedule, "Invalid rschedule.")
+    elif attribute == "frequency":
+        return prompt_for_value("Enter new frequency: ", is_valid_frequency, "Invalid frequency.")
+    elif attribute == "gschedule":
+        return prompt_for_value("Enter new gschedule: ", is_valid_gschedule, "Invalid gschedule.")
+    else:
+        return prompt_for_value("Enter new date: ", is_valid_date, "Invalid date.")
 
 
 def display_controls():
     print('''
     =============== Controls ===============
-    m - next day
-    n - previous day
-    mm - next week
-    nn - previous week
-    mmm - next month
-    nnn - previous month
-    mmmm - next year
-    nnnn - previous year
     ? - display controls
+    a - add item
+    di - display all items
+    s - display items for a specific date
+    e - enter day view
+    d - delete item
+    t - toggle item active status
     q - quit
 
     ''')
@@ -585,17 +861,28 @@ def main():
         if choice == '?':
             display_controls()
         elif choice == 'a':
-            new_item = get_new_item()
-            add_item(data, new_item)
+            add_item(data, get_new_item())
             print("Item added successfully.")
-        elif choice == 'd':
+        elif choice == 'di':
             display_items(data['items'])
         elif choice == 's':
-            date = prompt_for_value(
-                'Enter date (YYYY-MM-DD): ', is_iso_date, 'Date is not valid')
-            display_items_for_date(data, date)
+            display_items_for_date(data, get_valid_date())
+        elif choice == 'e':
+            enter_day_view(data)
+        elif choice == 'd':
+            delete_item(data, get_existing_item(data))
+            print("Item deleted successfully.")
+        elif choice == 't':
+            toggle_item_active(data, get_existing_item(data))
+            print("Item active status toggled successfully.")
         elif choice == 'q':
             quit_program(data)
+        elif choice == 'ed':
+            item = get_existing_item(data)
+            attribute = get_existing_attribute(item)
+            new = get_valid_attribute_value(attribute)
+            edit_item_attribute(data, item, attribute, new)
+            print("Item edited successfully.")
         else:
             print('Invalid choice')
 
