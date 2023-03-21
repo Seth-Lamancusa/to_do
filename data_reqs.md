@@ -11,7 +11,7 @@
             "description": "Meditate",
             "type": "routine",
             "frequency": "week",
-            "schedule": [
+            "rschedule": [
                 [
                     1,
                     15
@@ -24,13 +24,16 @@
                     5,
                     15
                 ]
-            ]
+            ],
+            "active": True
         },
         {
             "description": "Read GEB",
             "type": "goal",
             "start_date": "2023-03-22",
             "deadline": "2023-08-22",
+            "gschedule": [[]],
+            "active": True
         }
     ]
 }
