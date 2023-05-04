@@ -1,4 +1,6 @@
+from datetime import date
 from validation import *
+from helpers import *
 
 
 def prompt_for_value(prompt_text, validation_func, error_message):
@@ -22,53 +24,69 @@ def prompt_for_value(prompt_text, validation_func, error_message):
             print(error_message)
 
 
-def prompt_for_new_item():
+def prompt_for_new_item(data):
     """
     Gets a new item from the user with valid input.
+
+    Parameters:
+        data (dict): The data to validate against.
 
     Returns:
         dict: A valid item dictionary.
     """
 
-    description = prompt_for_value(
-        "Enter description (1-15 characters): ", is_valid_description, "Invalid description.")
-    type_ = prompt_for_value(
-        "Enter type (goal or routine): ", is_valid_type, "Invalid type.")
+    if not is_valid_data(data):
+        raise ValueError("Data is not valid")
 
-    item = {
-        "description": description,
-        "type": type_,
-        "active": True,
-    }
+    while True:
+        description = prompt_for_new_item_desc(data)
+        type_ = prompt_for_valid_item_attribute_value("type")
 
-    if type_ == "goal":
-        start_date = prompt_for_value(
-            "Enter start date (YYYY-MM-DD): ", is_valid_iso_date, "Invalid start date.")
-        deadline = prompt_for_value("Enter deadline (YYYY-MM-DD): ", lambda d: is_valid_iso_date(
-            d) and is_valid_iso_date(start_date, d), "Invalid deadline.")
-        gschedule = prompt_for_value("Enter gschedule as a list of lists (e.g. [[\"2020-01-01\", 30], [\"2020-01-03\", 45]]): ", lambda s: is_valid_gschedule_string(
-            s, start_date, deadline), "Invalid gschedule.")
-        item["start_date"] = start_date
-        item["deadline"] = deadline
-        item["gschedule"] = json.loads(gschedule)
-    elif type_ == "routine":
-        frequency = prompt_for_value(
-            "Enter frequency (day, week, month, or year): ", is_valid_frequency, "Invalid frequency.")
-        rschedule = prompt_for_value("Enter rschedule as a list of lists (e.g. [[1, 30], [3, 45]]): ", lambda s: is_valid_rschedule_string(
-            s, frequency), "Invalid rschedule.")
-        item["frequency"] = frequency
-        item["rschedule"] = json.loads(rschedule)
+        item = {
+            "description": description,
+            "type": type_,
+            "active": True,
+        }
 
-    return item
+        if type_ == "goal":
+            start_date = prompt_for_valid_item_attribute_value("start_date")
+            deadline = prompt_for_valid_item_attribute_value("deadline")
+            gschedule = prompt_for_valid_item_attribute_value("gschedule")
+            item["start_date"] = start_date
+            item["deadline"] = deadline
+            item["gschedule"] = gschedule
+        elif type_ == "routine":
+            frequency = prompt_for_valid_item_attribute_value("frequency")
+            rschedule = prompt_for_valid_item_attribute_value("rschedule")
+            item["frequency"] = frequency
+            item["rschedule"] = json.loads(rschedule)
+
+        if is_valid_item(item):
+            return item
+        else:
+            print("Incompatible item attributes.")
 
 
-def prompt_for_valid_date():
+def prompt_for_new_item_desc(data):
     """
+    Parameters:
+        data (dict): The data with which to compare item desc.
+
     Returns:
-        str: A valid date in the format YYYY-MM-DD.
+        str: A description for a new item.
+
+    Raises:
+        ValueError: If the data is invalid.
     """
 
-    prompt_for_value("date", is_valid_iso_date, "Invalid date")
+    if not is_valid_data(data):
+        raise ValueError("Invalid data.")
+
+    return prompt_for_value(
+        "Enter item description: ",
+        lambda i: is_valid_description(i) and not item_in_data(data, i),
+        "Item is invalid or already exists.",
+    )
 
 
 def prompt_for_existing_item_desc(data):
@@ -87,10 +105,111 @@ def prompt_for_existing_item_desc(data):
         raise ValueError("Invalid data.")
 
     return prompt_for_value(
-        "Enter item description: ", lambda i: is_valid_description(i) and item_in_data(data, i), "Item is invalid or does not exist.")
+        "Enter item description: ",
+        lambda i: is_valid_description(i) and item_in_data(data, i),
+        "Item is invalid or does not exist.",
+    )
 
 
-def prompt_for_existing_attribute(item):
+def prompt_for_valid_date():
+    """
+    Returns:
+        datetime.date: A valid date in the format YYYY-MM-DD.
+    """
+
+    return date.fromisoformat(
+        prompt_for_value("date", is_valid_iso_date, "Invalid date")
+    )
+
+
+def prompt_for_valid_item_attribute_value(attribute):
+    """
+    Parameters:
+        attribute (str): The attribute to get from the user.
+
+    Returns:
+        any: A valid attribute value.
+    """
+
+    if attribute == "desc":
+        return prompt_for_value(
+            "Enter valid description: ", is_valid_description, "Invalid description."
+        )
+    elif attribute == "type":
+        return prompt_for_value("Enter valid type: ", is_valid_type, "Invalid type.")
+    elif attribute == "active":
+        return prompt_for_value(
+            "Enter valid active status: ", is_valid_active, "Invalid active status."
+        )
+    elif attribute == "rschedule":
+        return json.loads(
+            prompt_for_value(
+                "Enter valid rschedule: ",
+                is_valid_rschedule_string,
+                "Invalid rschedule.",
+            )
+        )
+    elif attribute == "frequency":
+        return prompt_for_value(
+            "Enter valid frequency: ", is_valid_frequency, "Invalid frequency."
+        )
+    elif attribute == "gschedule":
+        return json.loads(
+            prompt_for_value(
+                "Enter valid gschedule: ",
+                is_valid_gschedule_string,
+                "Invalid gschedule.",
+            )
+        )
+    elif attribute == "start_date":
+        return date.fromisoformat(
+            prompt_for_value(
+                "Enter valid start date: ",
+                is_valid_iso_date,
+                "Invalid start date.",
+            )
+        )
+    elif attribute == "deadline":
+        return date.fromisoformat(
+            prompt_for_value(
+                "Enter valid deadline: ",
+                is_valid_iso_date,
+                "Invalid deadline.",
+            )
+        )
+    else:
+        raise ValueError("Invalid attribute.")
+
+
+def prompt_for_compatible_item_attribute_value(attribute, **kwargs):
+    """
+    Parameters:
+        attribute (str): The attribute to get from the user.
+        **kwargs: Attributes and values to check validity against.
+
+    Returns:
+        any: A valid attribute value.
+    """
+
+    if frozenset(kwargs.keys()) not in {
+        frozenset({"frequency"}),
+        frozenset({"rschedule"}),
+        frozenset({"gschedule", "start_date"}),
+        frozenset({"gschedule", "deadline"}),
+        frozenset({"start_date", "deadline"}),
+    }:
+        raise ValueError("Invalid arguments.")
+
+    while True:
+        value = prompt_for_valid_item_attribute_value(attribute)
+        kwargs[attribute] = value
+        if item_attribute_values_compatible(**kwargs):
+            return value
+        else:
+            print("Incompatible item attribute values.")
+
+
+def prompt_for_existing_item_attribute(item):
     """
     Parameters:
         item (dict): The item test the attribute against
@@ -105,37 +224,58 @@ def prompt_for_existing_attribute(item):
     if not is_valid_item(item):
         raise ValueError("item is not valid")
 
-    return prompt_for_value(f"Enter existing attribute for {item['description']}: ", lambda i: is_valid_attribute_key(
-        i) and i in item, f"Invalid or non-existent attribute for {item['description']}")
+    return prompt_for_value(
+        f"Enter existing attribute for {item['description']}: ",
+        lambda i: is_valid_attribute_key(i) and i in item,
+        f"Invalid or non-existent attribute for {item['description']}",
+    )
 
 
-def prompt_for_valid_attribute_value(attribute, item):
+def prompt_for_rschedule(frequency):
     """
     Parameters:
-        attribute (str): The attribute to get a value for.
-        item (dict): The item to get a value for.
+        frequency (str): The frequency to get an rschedule for.
 
     Returns:
-        str: A valid value for the attribute.
+        list: A valid rschedule for the frequency.
 
     Raises:
-        ValueError: if attribute is not valid
+        ValueError: if frequency is not valid
     """
 
-    if not is_valid_attribute_key(attribute):
-        raise ValueError("attribute is not valid")
+    if not is_valid_frequency(frequency):
+        raise ValueError("frequency is not valid")
 
-    if attribute == "description":
-        return prompt_for_value("Enter new description: ", is_valid_description, "Invalid description.")
-    elif attribute == "type":
-        return prompt_for_value("Enter new type: ", is_valid_type, "Invalid type.")
-    elif attribute == "active":
-        return prompt_for_value("Enter new active status: ", is_valid_active, "Invalid active status.")
-    elif attribute == "rschedule":
-        return prompt_for_value("Enter new rschedule: ", lambda i: is_valid_rschedule_string(i, item["frequency"]), "Invalid rschedule.")
-    elif attribute == "frequency":
-        return prompt_for_value("Enter new frequency: ", is_valid_frequency, "Invalid frequency.")
-    elif attribute == "gschedule":
-        return prompt_for_value("Enter new gschedule: ", is_valid_gschedule, "Invalid gschedule.")
-    else:
-        return prompt_for_value("Enter new date: ", is_valid_iso_date, "Invalid date.")
+    rschedule = []
+    while True:
+        if frequency == "day":
+            time = prompt_for_value(
+                "Enter duration: ", is_valid_duration, "Invalid duration."
+            )
+            rschedule.append([0, time])
+        elif frequency == "week":
+            day = prompt_for_value(
+                "Enter weekday: ", is_valid_weekday, "Invalid weekday."
+            )
+            duration = prompt_for_value(
+                "Enter duration: ", is_valid_duration, "Invalid duration."
+            )
+            rschedule.append([WEEKDAY_TO_INT[day], duration])
+        elif frequency == "month":
+            day = prompt_for_value(
+                "Enter day of month: ",
+                is_valid_month_day,
+                "Invalid day of month (please choose day < 29).",
+            )
+            duration = prompt_for_value(
+                "Enter duration: ", is_valid_duration, "Invalid duration."
+            )
+            rschedule.append([day - 1, duration])
+        elif frequency == "year":
+            date_ = prompt_for_value(
+                "Enter date in ISO format: ", is_valid_iso_date, "Invalid date."
+            )
+            duration = prompt_for_value(
+                "Enter duration: ", is_valid_duration, "Invalid duration."
+            )
+            rschedule.append([get_day_of_year(date_), duration])
