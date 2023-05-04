@@ -1,5 +1,50 @@
 import json
-from datetime import datetime
+from datetime import date
+
+
+VALID_ITEM_ATTRIBUTES = [
+    "description",
+    "type",
+    "active",
+    "rschedule",
+    "frequency",
+    "gschedule",
+    "start_date",
+    "deadline",
+]
+VALID_FREQUENCIES = ["day", "week", "month", "year"]
+VALID_WEEKDAYS = [
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+    "Sunday",
+]
+VALID_MONTHS = [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+]
+WEEKDAY_TO_INT = {
+    "Monday": 0,
+    "Tuesday": 1,
+    "Wednesday": 2,
+    "Thursday": 3,
+    "Friday": 4,
+    "Saturday": 5,
+    "Sunday": 6,
+}
 
 
 def is_valid_data(data):
@@ -77,19 +122,33 @@ def is_valid_item(item):
     if set(keys) != set(item.keys()):
         return False
 
-    if not (is_valid_description(item["description"]) and is_valid_type(item["type"]) and is_valid_active(item["active"])):
+    if not (
+        is_valid_description(item["description"])
+        and is_valid_type(item["type"])
+        and is_valid_active(item["active"])
+    ):
         return False
 
     if item["type"] == "goal":
-        return (is_valid_gschedule(item["gschedule"], item["start_date"], item["deadline"]) and
-                goal_item_compatible(item["gschedule"], item["start_date"], item["deadline"]))
+        return (
+            is_valid_gschedule(item["gschedule"])
+            and is_valid_date(item["start_date"])
+            and is_valid_date(item["deadline"])
+            and goal_attribute_values_compatible(
+                item["gschedule"], item["start_date"], item["deadline"]
+            )
+        )
     elif item["type"] == "routine":
-        return (is_valid_frequency(item["frequency"]) and
-                is_valid_rschedule(item["rschedule"], item["frequency"]) and
-                routine_item_compatible(item["rschedule"], item["frequency"]))
+        return (
+            is_valid_frequency(item["frequency"])
+            and is_valid_rschedule(item["rschedule"])
+            and routine_attribute_values_compatible(
+                item["rschedule"], item["frequency"]
+            )
+        )
 
 
-def routine_item_compatible(rschedule, frequency):
+def routine_attribute_values_compatible(rschedule, frequency):
     """
     Parameters:
         rschedule (list): rschedule to validate
@@ -116,12 +175,12 @@ def routine_item_compatible(rschedule, frequency):
         return False
 
 
-def goal_item_compatible(gschedule, start_date, deadline):
+def goal_attribute_values_compatible(gschedule, start_date, deadline):
     """
     Parameters:
         gschedule (list): gschedule to validate
-        start_date (str): start date to validate
-        deadline (str): deadline to validate
+        start_date (datetime.date): start date to validate
+        deadline (datetime.date): deadline to validate
 
     Returns:
         bool: True if gschedule is compatible with start date and deadline, False otherwise
@@ -129,15 +188,41 @@ def goal_item_compatible(gschedule, start_date, deadline):
 
     if not is_valid_gschedule(gschedule):
         return False
-    if not is_valid_iso_date(start_date):
-        return False
-    if not is_valid_iso_date(deadline):
-        return False
 
-    start = datetime.fromisoformat(start_date)
-    end = datetime.fromisoformat(deadline)
+    return all(
+        [start_date <= date.fromisoformat(spec[0]) <= deadline for spec in gschedule]
+    )
 
-    return all([start <= datetime.fromisoformat(spec[0]) <= end for spec in gschedule])
+
+def item_attribute_values_compatible(**kwargs):
+    """
+    Parameters:
+        kwargs (dict): keyword arguments to validate
+
+    Returns:
+        bool: True if keyword arguments are compatible, False otherwise
+    """
+
+    if frozenset(kwargs.keys()) not in {
+        frozenset({"gschedule", "start_date", "deadline"}),
+        frozenset(
+            {
+                "rschedule",
+                "frequency",
+            }
+        ),
+    }:
+        print(kwargs.keys())
+        raise ValueError("Invalid arguments")
+
+    if "gschedule" in kwargs:
+        return goal_attribute_values_compatible(
+            kwargs["gschedule"], kwargs["start_date"], kwargs["deadline"]
+        )
+    elif "rschedule" in kwargs:
+        return routine_attribute_values_compatible(
+            kwargs["rschedule"], kwargs["frequency"]
+        )
 
 
 # Validation functions for item keys
@@ -183,9 +268,13 @@ def is_valid_rschedule(rschedule):
         return False
 
     for spec in rschedule:
-        if not (isinstance(spec, list) and len(spec) == 2 and
-                isinstance(spec[0], int) and isinstance(spec[1], int) and
-                0 <= spec[1] <= 24 * 60):
+        if not (
+            isinstance(spec, list)
+            and len(spec) == 2
+            and isinstance(spec[0], int)
+            and isinstance(spec[1], int)
+            and 0 <= spec[1] <= 24 * 60
+        ):
             return False
 
     return True
@@ -200,7 +289,7 @@ def is_valid_frequency(frequency):
         bool: True if frequency is valid, False otherwise
     """
 
-    return frequency in {"day", "week", "month", "year"}
+    return frequency in VALID_FREQUENCIES
 
 
 def is_valid_gschedule(gschedule):
@@ -216,12 +305,28 @@ def is_valid_gschedule(gschedule):
         return False
 
     for spec in gschedule:
-        if not (isinstance(spec, list) and len(spec) == 2 and
-                isinstance(spec[0], str) and isinstance(spec[1], int) and
-                is_valid_iso_date(spec[0]) and 0 <= spec[1] <= 24 * 60):
+        if not (
+            isinstance(spec, list)
+            and len(spec) == 2
+            and isinstance(spec[0], date)
+            and isinstance(spec[1], int)
+            and 0 <= spec[1] <= 24 * 60
+        ):
             return False
 
     return True
+
+
+def is_valid_date(date_):
+    """
+    Parameters:
+        date_ (datetime.date): date to validate
+
+    Returns:
+        bool: True if date is valid, False otherwise
+    """
+
+    return isinstance(date_, date)
 
 
 def is_valid_iso_date(date_string):
@@ -237,7 +342,7 @@ def is_valid_iso_date(date_string):
         return False
 
     try:
-        datetime.fromisoformat(date_string)
+        date.fromisoformat(date_string)
         return True
     except ValueError:
         return False
@@ -267,15 +372,14 @@ def is_valid_attribute_key(attribute):
         bool: True if the attribute is valid, False otherwise.
     """
 
-    return attribute in ["description", "type", "active", "rschedule", "frequency", "gschedule", "start_date", "deadline"]
+    return attribute in VALID_ITEM_ATTRIBUTES
 
 
-def is_valid_attribute_value(attribute, value, item):
+def is_valid_attribute_value(attribute, value):
     """
     Parameters:
         attribute (str): The attribute to check.
         value (str): The value to check.
-        item (dict): The item to check the value against.
 
     Returns:
         bool: True if the value is valid, False otherwise.
@@ -288,16 +392,20 @@ def is_valid_attribute_value(attribute, value, item):
     elif attribute == "active":
         return is_valid_active(value)
     elif attribute == "rschedule":
-        return is_valid_rschedule(json.loads(value), item["frequency"])
+        return is_valid_rschedule(json.loads(value))
     elif attribute == "frequency":
         return is_valid_frequency(value)
     elif attribute == "gschedule":
         return is_valid_gschedule(value)
+    elif attribute == "start_date":
+        return is_valid_date(value)
+    elif attribute == "deadline":
+        return is_valid_date(value)
     else:
-        return is_valid_iso_date(value)
+        return False
 
 
-def is_valid_rschedule_string(rschedule_string, frequency):
+def is_valid_rschedule_string(rschedule_string):
     """
     Validates if the given rschedule string can be converted to a valid rschedule list.
 
@@ -311,12 +419,12 @@ def is_valid_rschedule_string(rschedule_string, frequency):
 
     try:
         rschedule = json.loads(rschedule_string)
-        return is_valid_rschedule(rschedule, frequency)
+        return is_valid_rschedule(rschedule)
     except (json.JSONDecodeError, ValueError):
         return False
 
 
-def is_valid_gschedule_string(gschedule_string, start_date, deadline):
+def is_valid_gschedule_string(gschedule_string):
     """
     Validates if the given gschedule string can be converted to a valid gschedule list.
 
@@ -329,6 +437,54 @@ def is_valid_gschedule_string(gschedule_string, start_date, deadline):
 
     try:
         gschedule = json.loads(gschedule_string)
-        return is_valid_gschedule(gschedule, start_date, deadline)
+        return is_valid_gschedule(gschedule)
     except (json.JSONDecodeError, ValueError):
         return False
+
+
+def is_valid_duration(duration):
+    """
+    Parameters:
+        time (int): time to validate
+
+    Returns:
+        bool: True if time is valid duration, False otherwise
+    """
+
+    return 0 <= duration <= 24 * 60
+
+
+def is_valid_weekday(weekday):
+    """
+    Parameters:
+        weekday (str): weekday to validate
+
+    Returns:
+        bool: True if weekday is valid, False otherwise
+    """
+
+    return weekday in VALID_WEEKDAYS
+
+
+def is_valid_month_day(month_day):
+    """
+    Parameters:
+        month_day (int): month_day to validate
+
+    Returns:
+        bool: True if month_day is valid, False otherwise
+    """
+
+    return month_day < 29
+
+
+def is_valid_month(month):
+    """
+    Parameters:
+        month (str): month to validate
+
+    Returns:
+        bool: True if month is valid, False otherwise
+    """
+
+    return month in VALID_MONTHS

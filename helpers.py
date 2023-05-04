@@ -24,6 +24,27 @@ def get_item(item_desc, data):
     return None
 
 
+def get_compatibility_dict(item):
+    """
+    Gets a compatibility dictionary for the given item.
+
+    Parameters:
+        item (dict): The item to get a compatibility dictionary for.
+
+    Returns:
+        dict: A compatibility dictionary for the given item.
+    """
+
+    if item["type"] == "goal":
+        return {
+            "gschedule": item["gschedule"],
+            "start_date": item["start_date"],
+            "deadline": item["deadline"],
+        }
+    elif item["type"] == "routine":
+        return {"rschedule": item["rschedule"], "frequency": item["frequency"]}
+
+
 def get_items_for_date(data, date_str):
     """
     Parameters:
