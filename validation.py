@@ -57,18 +57,26 @@ def is_valid_data(data):
     """
 
     if not isinstance(data, dict):
+        print("data is not a dictionary")
         return False
 
     if len(data) != 1:
+        print("data has more than one key")
         return False
     if "items" not in data:
+        print("data does not have an items key")
         return False
 
     descriptions = [item["description"] for item in data["items"]]
     if len(descriptions) != len(set(descriptions)):
+        print("data has duplicate descriptions")
         return False
 
-    return is_valid_items(data["items"])
+    if not is_valid_items(data["items"]):
+        print("data has invalid items")
+        return False
+
+    return True
 
 
 # Validation functions for data dictionary
@@ -184,14 +192,21 @@ def goal_attribute_values_compatible(gschedule, start_date, deadline):
 
     Returns:
         bool: True if gschedule is compatible with start date and deadline, False otherwise
+
+    Raises:
+        ValueError: if gschedule is not valid
+        ValueError: if start_date is not valid
+        ValueError: if deadline is not valid
     """
 
     if not is_valid_gschedule(gschedule):
-        return False
+        raise ValueError("Invalid gschedule")
+    if not is_valid_date(start_date):
+        raise ValueError("Invalid start_date")
+    if not is_valid_date(deadline):
+        raise ValueError("Invalid deadline")
 
-    return all(
-        [start_date <= date.fromisoformat(spec[0]) <= deadline for spec in gschedule]
-    )
+    return all([start_date <= spec[0] <= deadline for spec in gschedule])
 
 
 def item_attribute_values_compatible(**kwargs):
@@ -442,16 +457,16 @@ def is_valid_gschedule_string(gschedule_string):
         return False
 
 
-def is_valid_duration(duration):
+def is_valid_duration_string(duration):
     """
     Parameters:
-        time (int): time to validate
+        duration (str): duration to validate
 
     Returns:
         bool: True if time is valid duration, False otherwise
     """
 
-    return 0 <= duration <= 24 * 60
+    return 0 <= int(duration) <= 24 * 60
 
 
 def is_valid_weekday(weekday):
@@ -488,3 +503,15 @@ def is_valid_month(month):
     """
 
     return month in VALID_MONTHS
+
+
+def is_valid_yes_no(yn):
+    """
+    Parameters:
+        yes_no (str): yes_no to validate
+
+    Returns:
+        bool: True if yes_no is valid, False otherwise
+    """
+
+    return yn in ["y", "n"]

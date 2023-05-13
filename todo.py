@@ -52,11 +52,11 @@ def display_items(items):
         print()
 
 
-def display_items_for_date(data, date_str):
+def display_items_for_date(data, date_):
     """
     Parameters:
         data (dict): The data to display.
-        date (str): The date to display.
+        date (datetime.date): The date to display.
 
     Raises:
         ValueError: if data is not valid
@@ -65,15 +65,15 @@ def display_items_for_date(data, date_str):
 
     if not is_valid_data(data):
         raise ValueError("Data is not valid")
-    if not is_valid_iso_date(date_str):
+    if not is_valid_date(date_):
         raise ValueError("Date is not valid")
 
-    items = get_items_for_date(data, date_str)
-    year = int(date_str.split("-")[0])
-    month = int(date_str.split("-")[1])
-    day = int(date_str.split("-")[2])
+    items = get_items_for_date(data, date_)
+    year = int(date_.isoformat().split("-")[0])
+    month = int(date_.isoformat().split("-")[1])
+    day = int(date_.isoformat().split("-")[2])
     weekday = date(year, month, day).weekday()
-    print(f"=== {weekday}, {date_str} ===")
+    print(f"=== {weekday}, {date_.isoformat()} ===")
     display_items(items)
 
 
@@ -91,7 +91,7 @@ def enter_day_view(data):
 
     date_ = date.today()
     while True:
-        display_items_for_date(data, date_.isoformat())
+        display_items_for_date(data, date_)
         choice = input(
             "Enter b for previous day, n for next day, or r to return to menu: "
         )
@@ -127,17 +127,39 @@ def display_controls():
 
 
 def save_data(data):
+    def date_converter(obj):
+        if isinstance(obj, date):
+            return obj.isoformat()
+        raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
+
     try:
         with open(DATAFILE, "w", encoding="utf-8") as f:
-            json.dump(data, f)
+            json.dump(data, f, default=date_converter)
     except (FileNotFoundError, PermissionError, IsADirectoryError, OSError) as e:
         print(f"Error: {str(e)} occurred while saving data to file {DATAFILE}.")
+
+
+def process_value(value):
+    if isinstance(value, str):
+        try:
+            return date.fromisoformat(value)
+        except ValueError:
+            return value  # not a date
+    elif isinstance(value, list):
+        return [process_value(item) for item in value]
+    return value
+
+
+def iso_to_date(dct):
+    for key, value in dct.items():
+        dct[key] = process_value(value)
+    return dct
 
 
 def retrieve_data():
     try:
         with open(DATAFILE, "r", encoding="utf-8") as f:
-            return json.load(f)
+            return json.load(f, object_hook=iso_to_date)
     except FileNotFoundError:
         print("Error: no data file")
 
@@ -159,31 +181,56 @@ def main():
         if choice == "?":
             display_controls()
         elif choice == "a":
-            add_item(data, prompt_for_new_item())
-            print("Item added successfully.")
+            new_item = prompt_for_new_item(data)
+            if not new_item is None:
+                add_item(data, new_item)
+                print("Item added successfully.")
+            else:
+                print("Item not added.")
         elif choice == "di":
             display_items(data["items"])
         elif choice == "s":
-            display_items_for_date(data, prompt_for_valid_date())
+            valid_date = prompt_for_valid_date()
+            if not valid_date is None:
+                display_items_for_date(data, valid_date)
         elif choice == "e":
             enter_day_view(data)
         elif choice == "d":
-            delete_item(data, prompt_for_existing_item_desc(data))
-            print("Item deleted successfully.")
+            item_desc = prompt_for_existing_item_desc(data)
+            if not item_desc is None:
+                delete_item(data, item_desc)
+                print("Item deleted successfully.")
+            else:
+                print("Item not deleted.")
         elif choice == "t":
-            toggle_item_active(data, prompt_for_existing_item_desc(data))
-            print("Item active status toggled successfully.")
+            item_desc = prompt_for_existing_item_desc(data)
+            if not item_desc is None:
+                toggle_item_active(data, item_desc)
+                print("Item active status toggled successfully.")
+            else:
+                print("Item active status not toggled.")
         elif choice == "q":
             quit_program(data)
         elif choice == "ed":
             item_desc = prompt_for_existing_item_desc(data)
-            item = get_item(item_desc, data)
-            attribute = prompt_for_existing_item_attribute(item)
-            compat = get_compatibility_dict(item)
-            del compat[attribute]
-            new = prompt_for_compatible_item_attribute_value(attribute, **compat)
-            edit_item_attribute(data, item_desc, attribute, new)
-            print("Item edited successfully.")
+            if not item_desc is None:
+                item = get_item(item_desc, data)
+                attribute = prompt_for_existing_item_attribute(item)
+                if not attribute is None:
+                    compat = get_compatibility_dict(item)
+                    del compat[attribute]
+                    new = prompt_for_compatible_item_attribute_value(
+                        attribute, **compat
+                    )
+                    if not new is None:
+                        edit_item_attribute(data, item_desc, attribute, new)
+                        print("Item edited successfully.")
+                    else:
+                        print("Item not edited.")
+                else:
+                    print("Item not edited.")
+            else:
+                print("Item not edited.")
         else:
             print("Invalid choice")
 

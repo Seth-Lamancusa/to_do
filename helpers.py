@@ -45,11 +45,11 @@ def get_compatibility_dict(item):
         return {"rschedule": item["rschedule"], "frequency": item["frequency"]}
 
 
-def get_items_for_date(data, date_str):
+def get_items_for_date(data, date_):
     """
     Parameters:
         data (dict): The data to get items from.
-        date (str): The date to get items for.
+        date (datetime.date): The date to get items for.
 
     Returns:
         list: A list of item dictionaries.
@@ -61,71 +61,27 @@ def get_items_for_date(data, date_str):
 
     if not is_valid_data(data):
         raise ValueError("Data is not valid")
-    if not is_valid_iso_date(date_str):
+    if not is_valid_date(date_):
         raise ValueError("Date is not valid")
 
     items = []
 
     for item in data["items"]:
         if item["type"] == "goal":
-            if date_in_gschedule(item["gschedule"], date_str):
+            if date_in_gschedule(item["gschedule"], date_):
                 items.append(item)
         elif item["type"] == "routine":
-            if date_in_rschedule(item["frequency"], item["rschedule"], date_str):
+            if date_in_rschedule(item["frequency"], item["rschedule"], date_):
                 items.append(item)
 
     return items
 
 
-def get_day_of_week(date_str):
-    """
-    Parameters:
-        date (str): The date to get the day of the week for.
-
-    Returns:
-        int: The day of the week (0-6).
-
-    Raises:
-        ValueError: if date is not valid
-    """
-
-    if not is_valid_iso_date(date_str):
-        raise ValueError("Date is not valid")
-
-    year = int(date_str.split("-")[0])
-    month = int(date_str.split("-")[1])
-    day = int(date_str.split("-")[2])
-
-    return date(year, month, day).weekday()
-
-
-def get_day_of_year(date_str):
-    """
-    Parameters:
-        date (str): The date to get the day of the year for.
-
-    Returns:
-        int: The day of the year (1-366).
-
-    Raises:
-        ValueError: if date is not valid
-    """
-
-    if not is_valid_iso_date(date_str):
-        raise ValueError("Date is not valid")
-
-    year = int(date_str.split("-")[0])
-    month = int(date_str.split("-")[1])
-    day = int(date_str.split("-")[2])
-
-    return datetime.date(year, month, day).timetuple().tm_yday
-
-
-def date_in_gschedule(gschedule, date_str):
+def date_in_gschedule(gschedule, date_):
     """
     Parameters:
         gschedule (list): A list of lists containing a date and time.
-        date (str): The date to check.
+        date (datetime.date): The date to check.
 
     Returns:
         bool: True if the date is in the gschedule, False otherwise.
@@ -134,22 +90,22 @@ def date_in_gschedule(gschedule, date_str):
         ValueError: if date is not valid
     """
 
-    if not is_valid_iso_date(date_str):
+    if not is_valid_date(date_):
         raise ValueError("Date is not valid")
 
     for item in gschedule:
-        if item[0] == date_str:
+        if item[0] == date_:
             return True
 
     return False
 
 
-def date_in_rschedule(frequency, rschedule, date_str):
+def date_in_rschedule(frequency, rschedule, date_):
     """
     Parameters:
         frequency (str): The frequency of the rschedule.
         rschedule (list): A list of lists containing a time.
-        date (str): The date to check.
+        date (datetime.date): The date to check.
 
     Returns:
         bool: True if the date is in the rschedule, False otherwise.
@@ -162,28 +118,28 @@ def date_in_rschedule(frequency, rschedule, date_str):
 
     if not is_valid_frequency(frequency):
         raise ValueError("frequency is not valid")
-    if not is_valid_rschedule(rschedule, frequency):
+    if not is_valid_rschedule(rschedule):
         raise ValueError("rschedule is not valid")
-    if not is_valid_iso_date(date_str):
+    if not is_valid_date(date_):
         raise ValueError("Date is not valid")
 
     if frequency == "day":
         return True
 
     if frequency == "week":
-        day = get_day_of_week(date_str)
+        day = date_.weekday()
         for item in rschedule:
             if item[0] == day:
                 return True
 
     if frequency == "month":
-        day = int(date_str.split("-")[2])
+        day = date_.day
         for item in rschedule:
             if item[0] == day:
                 return True
 
     if frequency == "year":
-        day = get_day_of_year(date_str)
+        day = date_.timetuple().tm_yday
         for item in rschedule:
             if item[0] == day:
                 return True
