@@ -7,9 +7,6 @@ from helpers import *
 from managers import *
 
 
-DATAFILE = "data.json"
-
-
 # Display
 
 
@@ -111,13 +108,11 @@ def display_controls():
     =============== Controls ===============
     ? - display controls
     a - add item
-    di - display all items
-    s - display items for a specific date
-    e - enter day view
     d - delete item
-    t - toggle item active status
-    q - quit
     ed - edit item attribute
+    di - display all items
+    e - enter day view
+    q - quit
 
     """
     )
@@ -173,9 +168,11 @@ def quit_program(data):
 # Main
 
 
-def main():
-    data = retrieve_data()
+DATAFILE = "data.json"
+data = retrieve_data()
 
+
+def main():
     while True:
         choice = input("Enter choice or '?' for controls: ")
         if choice == "?":
@@ -189,10 +186,6 @@ def main():
                 print("Item not added.")
         elif choice == "di":
             display_items(data["items"])
-        elif choice == "s":
-            valid_date = prompt_for_valid_date()
-            if not valid_date is None:
-                display_items_for_date(data, valid_date)
         elif choice == "e":
             enter_day_view(data)
         elif choice == "d":
@@ -202,37 +195,13 @@ def main():
                 print("Item deleted successfully.")
             else:
                 print("Item not deleted.")
-        elif choice == "t":
-            item_desc = prompt_for_existing_item_desc(data)
-            if not item_desc is None:
-                toggle_item_active(data, item_desc)
-                print("Item active status toggled successfully.")
-            else:
-                print("Item active status not toggled.")
         elif choice == "q":
             quit_program(data)
         elif choice == "ed":
-            item_desc = prompt_for_existing_item_desc(data)
-            if not item_desc is None:
-                item = get_item(item_desc, data)
-                attribute = prompt_for_existing_item_attribute(item)
-                if not attribute is None:
-                    compat = get_compatibility_dict(item)
-                    del compat[attribute]
-                    new = prompt_for_compatible_item_attribute_value(
-                        attribute, **compat
-                    )
-                    if not new is None:
-                        edit_item_attribute(data, item_desc, attribute, new)
-                        print("Item edited successfully.")
-                    else:
-                        print("Item not edited.")
-                else:
-                    print("Item not edited.")
-            else:
-                print("Item not edited.")
+            prompt_for_edit_item(data)
         else:
             print("Invalid choice")
 
 
-main()
+if __name__ == "__main__":
+    main()

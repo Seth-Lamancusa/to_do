@@ -1,6 +1,7 @@
 from datetime import date, timedelta
 from validation import *
 from helpers import *
+from managers import *
 
 
 CANCEL = "cancel"
@@ -401,3 +402,23 @@ def prompt_for_gschedule(start_date, deadline):
             return None
         if t == "n":
             return gschedule
+
+
+def prompt_for_edit_item(data):
+    item_desc = prompt_for_existing_item_desc(data)
+    if not item_desc is None:
+        item = get_item(item_desc, data)
+        attribute = prompt_for_existing_item_attribute(item)
+        if not attribute is None:
+            compat = get_compatibility_dict(item)
+            del compat[attribute]
+            new = prompt_for_compatible_item_attribute_value(attribute, **compat)
+            if not new is None:
+                edit_item_attribute(data, item_desc, attribute, new)
+                print("Item edited successfully.")
+            else:
+                print("Item not edited.")
+        else:
+            print("Item not edited.")
+    else:
+        print("Item not edited.")
