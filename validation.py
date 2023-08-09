@@ -191,7 +191,7 @@ def goal_attribute_values_compatible(gschedule, start_date, deadline):
         deadline (datetime.date): deadline to validate
 
     Returns:
-        bool: True if gschedule is compatible with start date and deadline, False otherwise
+        bool: True if gschedule is compatible with start date and deadline and start date >= today, False otherwise
 
     Raises:
         ValueError: if gschedule is not valid
@@ -332,6 +332,20 @@ def is_valid_gschedule(gschedule):
     return True
 
 
+def date_in_range(date_, start_date, deadline):
+    """
+    Parameters:
+        date_ (datetime.date): date to validate
+        start_date (datetime.date): start date to validate
+        deadline (datetime.date): deadline to validate
+
+    Returns:
+        bool: True if date is in range, False otherwise
+    """
+
+    return start_date <= date_ <= deadline
+
+
 def is_valid_date(date_):
     """
     Parameters:
@@ -457,6 +471,18 @@ def is_valid_gschedule_string(gschedule_string):
         return False
 
 
+def is_valid_duration(duration):
+    """
+    Parameters:
+        duration (int): duration to validate
+
+    Returns:
+        bool: True if time is valid duration, False otherwise
+    """
+
+    return 0 <= duration <= 24 * 60
+
+
 def is_valid_duration_string(duration):
     """
     Parameters:
@@ -466,7 +492,7 @@ def is_valid_duration_string(duration):
         bool: True if time is valid duration, False otherwise
     """
 
-    return 0 <= int(duration) <= 24 * 60
+    return duration.isdigit() and 0 <= int(duration) <= 24 * 60
 
 
 def is_valid_weekday(weekday):
@@ -490,7 +516,19 @@ def is_valid_month_day(month_day):
         bool: True if month_day is valid, False otherwise
     """
 
-    return month_day < 29
+    return 0 < month_day < 29
+
+
+def is_valid_month_day_str(s):
+    """
+    Parameters:
+        s (str): month_day_str to validate
+
+    Returns:
+        bool: True if month_day_str is valid, False otherwise
+    """
+
+    return s.isdigit() and is_valid_month_day(int(s))
 
 
 def is_valid_month(month):

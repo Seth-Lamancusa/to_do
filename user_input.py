@@ -361,8 +361,7 @@ def prompt_for_gschedule(start_date, deadline):
             date_string = prompt_for_value(
                 "Enter date in ISO format: ",
                 lambda i: is_valid_iso_date(i)
-                and start_date <= date.fromisoformat(i)
-                and date.fromisoformat(i) <= deadline,
+                and date_in_range(i, start_date, deadline),
                 "Invalid date.",
             )
             if date_string is None:
