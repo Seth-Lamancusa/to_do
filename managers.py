@@ -1,12 +1,13 @@
 from validation import *
 from helpers import *
+from models import UserData, Item
 
 
 def add_item(data, item):
     """
     Parameters:
-        data (dict): data to add to
-        item (dict): item to add
+        data (UserData): data to add to
+        item (Item): item to add
 
     Returns:
         None
@@ -16,12 +17,14 @@ def add_item(data, item):
         ValueError: if data is not valid data
     """
 
-    if not is_valid_data(data):
+    print(item)
+
+    if not type(data) == UserData:
         raise ValueError("Data is not valid")
-    if not is_valid_item(item):
+    if not type(item) == Item:
         raise ValueError("Item is not valid")
 
-    data["items"].append(item)
+    data.items.append(item)
 
 
 def delete_item(data, item_desc):

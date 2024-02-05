@@ -1,5 +1,6 @@
 from validation import *
 from datetime import date, datetime
+from models import UserData
 
 
 # Helpers
@@ -48,8 +49,8 @@ def get_compatibility_dict(item):
 def get_items_for_date(data, date_):
     """
     Parameters:
-        data (dict): The data to get items from.
-        date (datetime.date): The date to get items for.
+        data (UserData): The data to get items from.
+        date_ (datetime.date): The date to get items for.
 
     Returns:
         list: A list of item dictionaries.
@@ -59,19 +60,19 @@ def get_items_for_date(data, date_):
         ValueError: if date is not valid
     """
 
-    if not is_valid_data(data):
+    if not type(data) == UserData:
         raise ValueError("Data is not valid")
-    if not is_valid_date(date_):
+    if not type(date_) == date:
         raise ValueError("Date is not valid")
 
     items = []
 
-    for item in data["items"]:
-        if item["type"] == "goal":
-            if date_in_gschedule(item["gschedule"], date_):
+    for item in data.items:
+        if item.type == "goal":
+            if date_in_gschedule(item.gschedule, date_):
                 items.append(item)
-        elif item["type"] == "routine":
-            if date_in_rschedule(item["frequency"], item["rschedule"], date_):
+        elif item.type == "routine":
+            if date_in_rschedule(item.frequency, item.rschedule, date_):
                 items.append(item)
 
     return items
